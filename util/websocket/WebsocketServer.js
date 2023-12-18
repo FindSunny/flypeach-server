@@ -1,9 +1,11 @@
 'use strict';
 
 const WebSocket = require('ws');
+const EventEmitter = require('events');
 
-class WebSocketServer {
+class WebSocketServer extends EventEmitter {
     constructor(port) {
+        super();
         // @ts-ignore
         this.wss = new WebSocket.Server({ port: port });
         this.clients = new Set();
@@ -33,10 +35,23 @@ class WebSocketServer {
         ws.send(message);
     }
 
-    broadcastMessage(message) {
-        for (const client of this.clients) {
-            this.sendMessage(client, message);
-        }
+    // 广播消息(异步并发)
+    async broadcastMessage(message) {
+        // 获取所有客户端
+        const sendPromises = Array.from(this.clients).map((client) => {
+            return new Promise((resolve, reject) => {
+                client.send(message, (err) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve("success");
+                    }
+                });
+            });
+        });
+
+        // 并发发送消息
+        await Promise.all(sendPromises);
     }
 
     cleanup() {

@@ -15,26 +15,31 @@ class RabbitMQUtils {
                     return;
                 }
                 this.ch = ch;
-                this.ch.assertExchange('logs', 'fanout', { durable: false });
+                // 直连队列
+                this.ch.assertQueue('news', { durable: false });
             });
         });
     }
 
     // 接受消息, callback为回调函数
     receiveMessage(callback) {
-        this.ch.assertQueue('', { exclusive: true }, (err, q) => {
-            if (err) {
-                console.error(err);
-                return;
+        // 判断是否链接
+        if (!this.conn) {
+            setTimeout(() => this.receiveMessage(callback), 1000);
+            return;
+        }
+
+        this.ch.consume('news', (msg) => {
+            if (msg !== null) {
+                callback(msg.content.toString());
+                this.ch.ack(msg);
             }
-            this.ch.bindQueue(q.queue, 'logs', '');
-            this.ch.consume(q.queue, (msg) => {
-                if (msg.content) {
-                    callback(msg.content.toString());
-                }
-            }, { noAck: true });
         });
+
+        console.log('RabbitMQUtils receiveMessage');
     }
+
+
 }
 
 module.exports = RabbitMQUtils;
